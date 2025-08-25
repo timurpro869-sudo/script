@@ -1,0 +1,242 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+local admins = {
+	["Golubkash"] = true, -- замени на свой ник
+}
+
+if not admins[player.Name] then return end
+
+local savedPosition = nil
+local noclipActive = false
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AdminMenu"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 50, 0, 50)
+toggleButton.Position = UDim2.new(0, 20, 0, 20)
+toggleButton.Text = "≡"
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.TextSize = 30
+toggleButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+toggleButton.Parent = screenGui
+
+local cornerToggle = Instance.new("UICorner")
+cornerToggle.CornerRadius = UDim.new(1, 0)
+cornerToggle.Parent = toggleButton
+
+local menuFrame = Instance.new("Frame")
+menuFrame.Size = UDim2.new(0, 220, 0, 240)
+menuFrame.Position = UDim2.new(0, 20, 0, 80)
+menuFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+menuFrame.Visible = false
+menuFrame.Parent = screenGui
+
+local cornerMenu = Instance.new("UICorner")
+cornerMenu.CornerRadius = UDim.new(0, 12)
+cornerMenu.Parent = menuFrame
+
+-- Кнопка закрытия
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 25, 0, 25)
+closeButton.Position = UDim2.new(1, -30, 0, 5)
+closeButton.Text = "X"
+closeButton.Font = Enum.Font.SourceSansBold
+closeButton.TextSize = 20
+closeButton.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+closeButton.TextColor3 = Color3.new(1,1,1)
+closeButton.Parent = menuFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeButton
+
+local function createButton(name, text, position)
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Size = UDim2.new(0, 180, 0, 40)
+	button.Position = UDim2.new(0, 20, 0, position)
+	button.Text = text
+	button.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Font = Enum.Font.SourceSans
+	button.TextSize = 18
+	button.Parent = menuFrame
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = button
+
+	return button
+end
+
+local saveButton = createButton("SavePositionButton", "Сохранить позицию", 40)
+local teleportButton = createButton("TeleportButton", "Телепорт", 90)
+local noclipButton = createButton("NoclipButton", "Noclip", 140)
+
+-- Кнопка открытия
+toggleButton.MouseButton1Click:Connect(function()
+	menuFrame.Visible = not menuFrame.Visible
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+	menuFrame.Visible = false
+end)
+
+saveButton.MouseButton1Click:Connect(function()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root then savedPosition = root.Position end
+end)
+
+teleportButton.MouseButton1Click:Connect(function()
+	if savedPosition then
+		local character = player.Character or player.CharacterAdded:Wait()
+		local root = character:FindFirstChild("HumanoidRootPart")
+		if root then root.CFrame = CFrame.new(savedPosition) end
+	end
+end)
+
+noclipButton.MouseButton1Click:Connect(function()
+	noclipActive = not noclipActive
+end)
+
+RunService.RenderStepped:Connect(function()
+	if noclipActive then
+		local character = player.Character
+		if character then
+			for _, part in pairs(character:GetDescendants()) do
+				if part:IsA("BasePart") and part.CanCollide then
+					part.CanCollide = false
+				end
+			end
+		end
+	end
+end)
+
+-- 🎯 Перетаскивание меню (мышь/тач)
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function updatePosition(input)
+	local delta = input.Position - dragStart
+	menuFrame.Position = UDim2.new(
+		startPos.X.Scale,
+		math.clamp(startPos.X.Offset + delta.X, 0, workspace.CurrentCamera.ViewportSize.X - menuFrame.AbsoluteSize.X),
+		startPos.Y.Scale,
+		math.clamp(startPos.Y.Offset + delta.Y, 0, workspace.CurrentCamera.ViewportSize.Y - menuFrame.AbsoluteSize.Y)
+	)
+end
+
+menuFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if input.Position.X >= menuFrame.AbsolutePosition.X and input.Position.Y >= menuFrame.AbsolutePosition.Y and input.Position.X <= menuFrame.AbsolutePosition.X + menuFrame.AbsoluteSize.X and input.Position.Y <= menuFrame.AbsolutePosition.Y + 30 then
+			dragging = true
+			dragStart = input.Position
+			startPos = menuFrame.Position
+
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end
+end)
+
+menuFrame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		updatePosition(input)
+	end
+end)
+
+-- 🧱 Угол для изменения размера
+local resizeHandle = Instance.new("Frame")
+resizeHandle.Size = UDim2.new(0, 20, 0, 20)
+resizeHandle.Position = UDim2.new(1, -20, 1, -20)
+resizeHandle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+resizeHandle.BorderSizePixel = 0
+resizeHandle.Parent = menuFrame
+
+local resizeCorner = Instance.new("UICorner")
+resizeCorner.CornerRadius = UDim.new(0, 4)
+resizeCorner.Parent = resizeHandle
+
+-- 🔧 Изменение размера меню
+local resizing = false
+local resizeStartPos
+local resizeStartSize
+
+resizeHandle.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		resizing = true
+		resizeStartPos = input.Position
+		resizeStartSize = menuFrame.Size
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				resizing = false
+			end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - resizeStartPos
+		menuFrame.Size = UDim2.new(0, math.clamp(resizeStartSize.X.Offset + delta.X, 150, 600), 0, math.clamp(resizeStartSize.Y.Offset + delta.Y, 100, 600))
+	end
+end)
+
+-- 🔘 Перетаскивание кнопки toggleButton
+local btnDragging = false
+local btnDragInput, btnDragStart, btnStartPos
+
+local function updateBtnPosition(input)
+	local delta = input.Position - btnDragStart
+	toggleButton.Position = UDim2.new(
+		0,
+		math.clamp(btnStartPos.X.Offset + delta.X, 0, workspace.CurrentCamera.ViewportSize.X - toggleButton.AbsoluteSize.X),
+		0,
+		math.clamp(btnStartPos.Y.Offset + delta.Y, 0, workspace.CurrentCamera.ViewportSize.Y - toggleButton.AbsoluteSize.Y)
+	)
+end
+
+toggleButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		btnDragging = true
+		btnDragStart = input.Position
+		btnStartPos = toggleButton.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				btnDragging = false
+			end
+		end)
+	end
+end)
+
+toggleButton.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		btnDragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input == btnDragInput and btnDragging then
+		updateBtnPosition(input)
+	end
+end)
