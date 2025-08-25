@@ -106,7 +106,7 @@ teleportButton.MouseButton1Click:Connect(function()
 			root.CFrame = CFrame.new(savedPosition) -- Телепортация в сохранённую точку
 
 			-- Обратная телепортация через 5 секунд
-			task.delay(0.5, function()
+			task.delay(0.2, function()
 				local char = player.Character
 				if char then
 					local r = char:FindFirstChild("HumanoidRootPart")
